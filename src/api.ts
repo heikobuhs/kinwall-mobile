@@ -12,7 +12,7 @@ export class ApiError extends Error {
 }
 
 export type EventInstance = {
-  id: string; title: string; end?: string; calendarId?: string; color?: string | null
+  id: string; title: string; end?: string; calendarId?: string; color?: string | null; categoryId?: string | null
   /** ISO instant for timed events; YYYY-MM-DD for all-day ones. */
   start: string; allDay: boolean; location?: string | null; memberIds?: string[]
   /** Minutes before start (or before leaveAt when remindBeforeLeave) to remind. */
