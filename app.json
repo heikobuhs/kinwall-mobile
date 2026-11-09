@@ -197,6 +197,18 @@
               "updatePeriodMillis": 1800000
             },
             {
+              "name": "Calendar",
+              "label": "Calendar",
+              "description": "A month at a glance with your Kinwall events and calendar colors.",
+              "minWidth": "250dp",
+              "minHeight": "260dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 5,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widgets/calendar.png",
+              "updatePeriodMillis": 1800000
+            },
+            {
               "name": "Chores",
               "label": "Chores",
               "description": "Today's chores, one person's or everyone's. Tap one to tick it off.",

@@ -6,7 +6,7 @@ import {
   FlexWidget, ListWidget, TextWidget, registerWidgetConfigurationScreen, registerWidgetTaskHandler,
   type WidgetConfigurationScreenProps, type WidgetRepresentation, type WidgetTaskHandlerProps,
 } from 'react-native-android-widget'
-import { type Board, type Connection, board, choresOn, completeChore, dueDoses, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
+import { type Board, type Connection, type EventInstance, board, choresOn, completeChore, dueDoses, events, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
 import { type WidgetPalette, widgetPalette } from './appearance'
 import { savedAppearance, useUi } from './theme'
 import { widgetConnection } from './sharedKey'
@@ -23,14 +23,14 @@ import KinwallNative from '../modules/kinwall-native'
 // Home Screen only: the library declares every widget `home_screen`, never `keyguard`, so none of
 // them (Take now above all) can go on the Lock Screen or the Android 16 hub.
 
-type Name = 'Kinwall' | 'Chores' | 'List' | 'TakeNow'
+type Name = 'Kinwall' | 'Chores' | 'List' | 'TakeNow' | 'Calendar'
 const link = (to: string) => ({ uri: `family.kinwall.app:/open?to=${to}` })
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 const DEMO_FLAG = 'family.kinwall.demo'
 
 // ---- Each widget's own setting (the person, the list), chosen in its configuration screen ----
 
-type Config = { member?: string | null; list?: string }
+type Config = { member?: string | null; list?: string; month?: string }
 const configKey = (id: number) => `widget.${id}`
 const loadConfig = (id: number): Config => { try { return JSON.parse(SecureStore.getItem(configKey(id)) ?? '{}') } catch { return {} } }
 const saveConfig = (id: number, c: Config) => SecureStore.setItemAsync(configKey(id), JSON.stringify(c)).catch(() => {})
@@ -146,6 +146,54 @@ function TakeNow({ p, due, problem }: { p: WidgetPalette; due: number | null; pr
   )
 }
 
+function monthKey(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` }
+function monthDate(key?: string) {
+  if (key && /^\d{4}-\d{2}$/.test(key)) { const [y, m] = key.split('-').map(Number); if (m >= 1 && m <= 12) return new Date(y, m - 1, 1) }
+  const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), 1)
+}
+const dateKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+function calendarGrid(month: Date) {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1)
+  const start = new Date(first); start.setDate(first.getDate() - ((first.getDay() + 6) % 7))
+  const rows = Math.ceil((new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate() + ((first.getDay() + 6) % 7)) / 7)
+  return Array.from({ length: rows * 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d })
+}
+function eventDay(e: EventInstance) {
+  if (e.allDay) return e.start.slice(0, 10)
+  const d = new Date(e.start)
+  return Number.isNaN(d.getTime()) ? '' : dateKey(d)
+}
+function eventInk(color?: string | null, fallback = '#ffffff') {
+  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return fallback
+  const n = parseInt(color.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#102A43' : '#ffffff'
+}
+function CalendarMonth({ p, month, items, problem, demo }: { p: WidgetPalette; month: Date; items: EventInstance[]; problem?: string; demo?: boolean }) {
+  const days = calendarGrid(month), byDay = new Map<string, EventInstance[]>()
+  for (const e of items) { const k = eventDay(e); if (k) byDay.set(k, [...(byDay.get(k) ?? []), e]) }
+  const monthName = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }).replace('.', ''))
+  return <Frame p={p} to="calendar">
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
+      <FlexWidget style={{ paddingHorizontal: 7, paddingVertical: 3 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date(month.getFullYear(), month.getMonth() - 1, 1)) }}><TextWidget text="‹" style={{ fontSize: 20, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
+      <FlexWidget style={{ flex: 1 }} clickAction="OPEN_URI" clickActionData={link('calendar')}><TextWidget text={monthName} style={{ fontSize: 14, fontWeight: 'bold', color: p.fg }} maxLines={1} /></FlexWidget>
+      <FlexWidget style={{ paddingHorizontal: 7, paddingVertical: 3 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date(month.getFullYear(), month.getMonth() + 1, 1)) }}><TextWidget text="›" style={{ fontSize: 20, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
+      <FlexWidget style={{ paddingHorizontal: 6, paddingVertical: 5, backgroundColor: p.card, borderRadius: 12 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date()) }}><TextWidget text={Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('de') ? 'Heute' : 'Today'} style={{ fontSize: 10, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
+    </FlexWidget>
+    {problem ? <Note p={p} text={problem} /> : null}
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 2 }}>{weekdays.map((w, i) => <FlexWidget key={i} style={{ flex: 1, alignItems: 'center' }}><TextWidget text={w} style={{ fontSize: 9, fontWeight: 'bold', color: p.dim }} /></FlexWidget>)}</FlexWidget>
+    {Array.from({ length: days.length / 7 }, (_, row) => <FlexWidget key={row} style={{ width: 'match_parent', flex: 1, flexDirection: 'row' }}>{days.slice(row * 7, row * 7 + 7).map((day) => {
+      const key = dateKey(day), currentMonth = day.getMonth() === month.getMonth(), today = key === dateKey(new Date()), dayEvents = byDay.get(key) ?? [], first = dayEvents[0]
+      return <FlexWidget key={key} style={{ flex: 1, flexDirection: 'column', alignItems: 'center', backgroundColor: today ? p.card : p.bg, borderRadius: 5, paddingTop: 2, margin: 1 }} clickAction={first ? 'OPEN_URI' : 'OPEN_URI'} clickActionData={first && !demo ? link(`event&event=${encodeURIComponent(first.id)}&at=${encodeURIComponent(first.start)}`) : link('calendar')}>
+        <TextWidget text={String(day.getDate())} style={{ fontSize: 10, fontWeight: today ? 'bold' : 'normal', color: currentMonth ? p.fg : p.dim }} />
+        {first ? <FlexWidget style={{ width: 'match_parent', backgroundColor: first.color && /^#[0-9a-f]{6}$/i.test(first.color) ? first.color : p.accent, borderRadius: 3, paddingHorizontal: 2, marginTop: 1 }}><TextWidget text={first.title} style={{ fontSize: 7, color: eventInk(first.color, p.bg), fontWeight: 'bold' }} maxLines={1} truncate="END" /></FlexWidget> : null}
+        {dayEvents.length > 1 ? <TextWidget text={`+${dayEvents.length - 1}`} style={{ fontSize: 7, color: p.dim }} /> : null}
+      </FlexWidget>
+    })}</FlexWidget>)}
+    {demo ? <TextWidget text="Demo" style={{ fontSize: 8, color: p.dim }} /> : null}
+  </Frame>
+}
+
 // ---- Data ----
 
 /** While the demo is open (its flag, src/demo.ts), the widgets show the demo family, like the iOS
@@ -177,6 +225,18 @@ const ownPerson = (c: Connection) => me(c).then((m) => (m.owner && m.owner !== '
 async function draw(name: Name, id: number, problem?: string): Promise<(p: WidgetPalette) => React.JSX.Element> {
   const c = await widgetConnection()
   const demo = !c && !!(await KinwallNative?.keychainGet(DEMO_FLAG, true).catch(() => null))
+  if (name === 'Calendar') {
+    const selected = monthDate(loadConfig(id).month), dates = calendarGrid(selected)
+    const from = new Date(dates[0].getFullYear(), dates[0].getMonth(), dates[0].getDate())
+    const to = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), dates[dates.length - 1].getDate() + 1)
+    if (demo) {
+      const sample: EventInstance[] = [{ id: 'demo-sport', title: 'Sport', start: dateKey(new Date(selected.getFullYear(), selected.getMonth(), Math.min(12, new Date(selected.getFullYear(), selected.getMonth() + 1, 0).getDate()))), allDay: true, color: '#3E9B72' }]
+      return (p) => <CalendarMonth p={p} month={selected} items={sample} demo />
+    }
+    if (!c) return (p) => <CalendarMonth p={p} month={selected} items={[]} problem={SIGNED_OUT} />
+    const rows = await events(c, from, to).catch(() => null)
+    return (p) => <CalendarMonth p={p} month={selected} items={rows ?? []} problem={rows ? problem : OFFLINE} />
+  }
   switch (name) {
     case 'Chores': {
       if (demo) return (p) => <Chores p={p} d={{ date: 'demo', person: null, names: DEMO_PEOPLE, chores: DEMO_CHORES, demo }} problem="Demo" />
@@ -227,6 +287,10 @@ async function render(name: Name, id: number, problem?: string): Promise<WidgetR
  * counts chores too). Offline or refused, the row stays and the widget says so. */
 async function click(props: WidgetTaskHandlerProps): Promise<string | undefined> {
   const d = (props.clickActionData ?? {}) as Record<string, string | null>
+  if (props.clickAction === 'CALENDAR_MONTH' && d.month && /^\d{4}-\d{2}$/.test(d.month)) {
+    await saveConfig(props.widgetInfo.widgetId, { ...loadConfig(props.widgetInfo.widgetId), month: d.month })
+    return undefined
+  }
   const c = await widgetConnection()
   if (!c) return SIGNED_OUT
   const saved = props.clickAction === 'CHORE' ? await completeChore(c, d.id!, d.date!, d.memberId ?? null).then(() => true, () => false)
