@@ -163,6 +163,11 @@ function eventDay(e: EventInstance) {
   const d = new Date(e.start)
   return Number.isNaN(d.getTime()) ? '' : dateKey(d)
 }
+function eventTimeLabel(e: EventInstance) {
+  if (e.allDay) return Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('de') ? 'Ganztägig' : 'All day'
+  const d = new Date(e.start)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+}
 function eventInk(color?: string | null, fallback = '#ffffff') {
   if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return fallback
   const n = parseInt(color.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255
@@ -171,23 +176,27 @@ function eventInk(color?: string | null, fallback = '#ffffff') {
 function CalendarMonth({ p, month, items, problem, demo }: { p: WidgetPalette; month: Date; items: EventInstance[]; problem?: string; demo?: boolean }) {
   const days = calendarGrid(month), byDay = new Map<string, EventInstance[]>()
   for (const e of items) { const k = eventDay(e); if (k) byDay.set(k, [...(byDay.get(k) ?? []), e]) }
+  for (const list of byDay.values()) list.sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start))
   const monthName = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(undefined, { weekday: 'short' }).replace('.', ''))
   return <Frame p={p} to="calendar">
     <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-      <FlexWidget style={{ paddingHorizontal: 7, paddingVertical: 3 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date(month.getFullYear(), month.getMonth() - 1, 1)) }}><TextWidget text="‹" style={{ fontSize: 20, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
-      <FlexWidget style={{ flex: 1 }} clickAction="OPEN_URI" clickActionData={link('calendar')}><TextWidget text={monthName} style={{ fontSize: 14, fontWeight: 'bold', color: p.fg }} maxLines={1} /></FlexWidget>
-      <FlexWidget style={{ paddingHorizontal: 7, paddingVertical: 3 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date(month.getFullYear(), month.getMonth() + 1, 1)) }}><TextWidget text="›" style={{ fontSize: 20, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
-      <FlexWidget style={{ paddingHorizontal: 6, paddingVertical: 5, backgroundColor: p.card, borderRadius: 12 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date()) }}><TextWidget text={Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('de') ? 'Heute' : 'Today'} style={{ fontSize: 10, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
+      <FlexWidget style={{ width: 48, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: p.card, borderRadius: 22, marginRight: 5 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date(month.getFullYear(), month.getMonth() - 1, 1)) }}><TextWidget text="‹" style={{ fontSize: 28, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
+      <FlexWidget style={{ flex: 1, minHeight: 44, justifyContent: 'center' }} clickAction="OPEN_URI" clickActionData={link('calendar')}><TextWidget text={monthName} style={{ fontSize: 17, fontWeight: 'bold', color: p.fg }} maxLines={1} /></FlexWidget>
+      <FlexWidget style={{ width: 48, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: p.card, borderRadius: 22, marginHorizontal: 5 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date(month.getFullYear(), month.getMonth() + 1, 1)) }}><TextWidget text="›" style={{ fontSize: 28, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
+      <FlexWidget style={{ minWidth: 52, height: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, backgroundColor: p.card, borderRadius: 22 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date()) }}><TextWidget text={Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('de') ? 'Heute' : 'Today'} style={{ fontSize: 11, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
     </FlexWidget>
     {problem ? <Note p={p} text={problem} /> : null}
-    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 2 }}>{weekdays.map((w, i) => <FlexWidget key={i} style={{ flex: 1, alignItems: 'center' }}><TextWidget text={w} style={{ fontSize: 9, fontWeight: 'bold', color: p.dim }} /></FlexWidget>)}</FlexWidget>
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', marginBottom: 3 }}>{weekdays.map((w, i) => <FlexWidget key={i} style={{ flex: 1, alignItems: 'center' }}><TextWidget text={w} style={{ fontSize: 10, fontWeight: 'bold', color: p.dim }} /></FlexWidget>)}</FlexWidget>
     {Array.from({ length: days.length / 7 }, (_, row) => <FlexWidget key={row} style={{ width: 'match_parent', flex: 1, flexDirection: 'row' }}>{days.slice(row * 7, row * 7 + 7).map((day) => {
       const key = dateKey(day), currentMonth = day.getMonth() === month.getMonth(), today = key === dateKey(new Date()), dayEvents = byDay.get(key) ?? [], first = dayEvents[0]
-      return <FlexWidget key={key} style={{ flex: 1, flexDirection: 'column', alignItems: 'center', backgroundColor: today ? p.card : p.bg, borderRadius: 5, paddingTop: 2, margin: 1 }} clickAction={first ? 'OPEN_URI' : 'OPEN_URI'} clickActionData={first && !demo ? link(`event&event=${encodeURIComponent(first.id)}&at=${encodeURIComponent(first.start)}`) : link('calendar')}>
-        <TextWidget text={String(day.getDate())} style={{ fontSize: 10, fontWeight: today ? 'bold' : 'normal', color: currentMonth ? p.fg : p.dim }} />
-        {first ? <FlexWidget style={{ width: 'match_parent', backgroundColor: first.color && /^#[0-9a-f]{6}$/i.test(first.color) ? first.color : p.accent, borderRadius: 3, paddingHorizontal: 2, marginTop: 1 }}><TextWidget text={first.title} style={{ fontSize: 7, color: eventInk(first.color, p.bg), fontWeight: 'bold' }} maxLines={1} truncate="END" /></FlexWidget> : null}
-        {dayEvents.length > 1 ? <TextWidget text={`+${dayEvents.length - 1}`} style={{ fontSize: 7, color: p.dim }} /> : null}
+      return <FlexWidget key={key} style={{ flex: 1, flexDirection: 'column', alignItems: 'center', backgroundColor: today ? p.card : p.bg, borderRadius: 7, paddingTop: 3, paddingHorizontal: 2, margin: 1 }} clickAction="OPEN_URI" clickActionData={first && !demo ? link(`event&event=${encodeURIComponent(first.id)}&at=${encodeURIComponent(first.start)}`) : link('calendar')}>
+        <TextWidget text={String(day.getDate())} style={{ fontSize: 12, fontWeight: today ? 'bold' : 'normal', color: currentMonth ? p.fg : p.dim }} />
+        {first ? <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', alignItems: 'center', backgroundColor: first.color && /^#[0-9a-f]{6}$/i.test(first.color) ? first.color : p.accent, borderRadius: 5, paddingHorizontal: 2, paddingVertical: 2, marginTop: 2 }}>
+          <TextWidget text={first.title} style={{ fontSize: 9, color: eventInk(first.color, p.bg), fontWeight: 'bold' }} maxLines={1} truncate="END" />
+          <TextWidget text={eventTimeLabel(first)} style={{ fontSize: 8, color: eventInk(first.color, p.bg) }} maxLines={1} truncate="END" />
+        </FlexWidget> : null}
+        {dayEvents.length > 1 ? <TextWidget text={`+${dayEvents.length - 1}`} style={{ fontSize: 8, color: p.dim }} /> : null}
       </FlexWidget>
     })}</FlexWidget>)}
     {demo ? <TextWidget text="Demo" style={{ fontSize: 8, color: p.dim }} /> : null}
