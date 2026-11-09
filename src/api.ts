@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 // The slice of Kinwall's REST API the shell and the Android widget need (KinwallKit stays the
 // Swift side's client). One fetch per call; callers own caching.
 
@@ -18,7 +19,8 @@ export type EventInstance = {
   /** Minutes before start (or before leaveAt when remindBeforeLeave) to remind. */
   reminders?: number[] | null; leaveAt?: string | null; remindBeforeLeave?: boolean
 }
-export type BoardEvent = { id: string; title: string; start: string; end: string; allDay: boolean; color?: string | null; leaveAt?: string | null; date: string }
+export type BoardEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendarId?: string; color?: string | null; leaveAt?: string | null; date: string }
+export type CalendarEntry = { id: string; kind: 'local' | 'ics' | 'google' | 'microsoft' | 'caldav'; enabled: boolean }
 export type Board = {
   today: string
   events: BoardEvent[]
@@ -50,6 +52,7 @@ export async function isKinwall(baseURL: string): Promise<boolean> {
 
 export const events = (c: Connection, from: Date, to: Date) =>
   api<EventInstance[]>(c.baseURL, c.key, 'GET', `api/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
+export const calendars = (c: Connection) => api<CalendarEntry[]>(c.baseURL, c.key, 'GET', 'api/calendars')
 /** This key's owner: a member id on a person's own device, else "shared" or null. */
 /** `householdId`: the same for every key to one family (servers from 2026-09-30 on). */
 export const me = (c: Connection) => api<{ scope: string; owner: string | null; householdId?: string }>(c.baseURL, c.key, 'GET', 'api/me')
@@ -106,3 +109,4 @@ export function nowAndNext(b: Board, now = new Date()): { now?: BoardEvent; next
   const next = today.filter((e) => Date.parse(e.start) > t).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0]
   return { now: current, next }
 }
+
