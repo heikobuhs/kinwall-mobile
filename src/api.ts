@@ -1,4 +1,3 @@
-Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 // The slice of Kinwall's REST API the shell and the Android widget need (KinwallKit stays the
 // Swift side's client). One fetch per call; callers own caching.
 
