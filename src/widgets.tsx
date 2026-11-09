@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 import * as SecureStore from 'expo-secure-store'
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text } from 'react-native'
@@ -6,7 +7,7 @@ import {
   FlexWidget, ListWidget, TextWidget, registerWidgetConfigurationScreen, registerWidgetTaskHandler,
   type WidgetConfigurationScreenProps, type WidgetRepresentation, type WidgetTaskHandlerProps,
 } from 'react-native-android-widget'
-import { type Board, type Connection, type EventInstance, board, choresOn, completeChore, dueDoses, events, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
+import { type Board, type Connection, type EventInstance, board, calendars, choresOn, completeChore, dueDoses, events, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
 import { type WidgetPalette, widgetPalette } from './appearance'
 import { savedAppearance, useUi } from './theme'
 import { widgetConnection } from './sharedKey'
@@ -243,8 +244,10 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
       return (p) => <CalendarMonth p={p} month={selected} items={sample} demo />
     }
     if (!c) return (p) => <CalendarMonth p={p} month={selected} items={[]} problem={SIGNED_OUT} />
-    const rows = await events(c, from, to).catch(() => null)
-    return (p) => <CalendarMonth p={p} month={selected} items={rows ?? []} problem={rows ? problem : OFFLINE} />
+    const [rows, calendarRows] = await Promise.all([events(c, from, to), calendars(c)]).catch(() => [null, null] as const)
+    const schoolIds = new Set((calendarRows ?? []).filter((cal) => cal.kind === 'ics' && cal.enabled).map((cal) => cal.id))
+    const visible = rows?.filter((event) => !event.calendarId || !schoolIds.has(event.calendarId)) ?? []
+    return (p) => <CalendarMonth p={p} month={selected} items={visible} problem={rows ? problem : OFFLINE} />
   }
   switch (name) {
     case 'Chores': {
@@ -278,8 +281,10 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
     default: {
       if (demo) return (p) => <NowAndNext p={p} b={sampleBoard()} problem="Demo" />
       if (!c) return (p) => <NowAndNext p={p} b={null} problem={SIGNED_OUT} />
-      const [fetched, f] = await Promise.all([board(c, 1).catch(() => null), features(c)])
-      const b = fetched && f.chores === false ? { ...fetched, chores: [] } : fetched // no chores line with Chores off
+      const [fetched, f, calendarRows] = await Promise.all([board(c, 1).catch(() => null), features(c), calendars(c).catch(() => [])])
+      const schoolIds = new Set(calendarRows.filter((cal) => cal.kind === 'ics' && cal.enabled).map((cal) => cal.id))
+      const filtered = fetched ? { ...fetched, events: fetched.events.filter((event) => !event.calendarId || !schoolIds.has(event.calendarId)) } : null
+      const b = filtered && f.chores === false ? { ...filtered, chores: [] } : filtered // no chores line with Chores off
       return (p) => <NowAndNext p={p} b={b} problem={b ? undefined : OFFLINE} />
     }
   }
@@ -352,3 +357,4 @@ function Configure({ widgetInfo, renderWidget, setResult }: WidgetConfigurationS
     </SafeAreaView>
   )
 }
+
