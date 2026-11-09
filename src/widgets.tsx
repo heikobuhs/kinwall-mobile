@@ -1,4 +1,3 @@
-Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 import * as SecureStore from 'expo-secure-store'
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text } from 'react-native'
