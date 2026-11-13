@@ -201,9 +201,9 @@
               "label": "Calendar",
               "description": "A month at a glance with your Kinwall events and calendar colors.",
               "minWidth": "320dp",
-              "minHeight": "350dp",
+              "minHeight": "260dp",
               "targetCellWidth": 5,
-              "targetCellHeight": 6,
+              "targetCellHeight": 4,
               "resizeMode": "horizontal|vertical",
               "previewImage": "./assets/widgets/calendar.png",
               "updatePeriodMillis": 1800000
