@@ -253,7 +253,7 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
       return (p) => <CalendarMonth p={p} month={selected} items={sample} categories={[]} demo />
     }
     if (!c) return (p) => <CalendarMonth p={p} month={selected} items={[]} categories={[]} problem={SIGNED_OUT} />
-    const [rows, calendarRows, categoryRows] = await Promise.all([events(c, from, to), calendars(c), eventCategories(c)]).catch(() => [null, null, null] as const)
+    const [rows, calendarRows, categoryRows] = await Promise.all([events(c, from, to).catch(() => null), calendars(c).catch(() => null), eventCategories(c).catch(() => [])])
     const schoolIds = new Set((calendarRows ?? []).filter((cal) => cal.kind === 'ics').map((cal) => cal.id))
     const visible = rows?.filter((event) => !!event.calendarId && !schoolIds.has(event.calendarId)) ?? []
     return (p) => <CalendarMonth p={p} month={selected} items={visible} categories={categoryRows ?? []} problem={rows ? problem : OFFLINE} />
