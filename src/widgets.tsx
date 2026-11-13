@@ -6,7 +6,7 @@ import {
   FlexWidget, ListWidget, TextWidget, registerWidgetConfigurationScreen, registerWidgetTaskHandler,
   type WidgetConfigurationScreenProps, type WidgetRepresentation, type WidgetTaskHandlerProps,
 } from 'react-native-android-widget'
-import { type Board, type Connection, type EventInstance, board, calendars, choresOn, completeChore, dueDoses, events, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
+import { type Board, type Connection, type EventInstance, type EventCategory, board, calendars, choresOn, completeChore, dueDoses, events, eventCategories, features, list, settings, lists, me, members, nowAndNext, setItemDone } from './api'
 import { type WidgetPalette, widgetPalette } from './appearance'
 import { savedAppearance, useUi } from './theme'
 import { widgetConnection } from './sharedKey'
@@ -163,13 +163,19 @@ function eventDay(e: EventInstance) {
   const d = new Date(e.start)
   return Number.isNaN(d.getTime()) ? '' : dateKey(d)
 }
-function isBirthday(e: EventInstance) { return /geburtstag|birthday|\uD83C\uDF82/i.test(e.title) }
+function celebration(e: EventInstance, categories: EventCategory[]): 'birthday' | 'anniversary' | null {
+  const category = categories.find((c) => c.id === e.categoryId)
+  const label = `${category?.name ?? ''} ${category?.emoji ?? ''} ${e.title}`.toLocaleLowerCase()
+  if (/geburtstag|birthday|🎂/.test(label)) return 'birthday'
+  if (/jubiläum|jubilaeum|jubilee|anniversary|🎉/.test(label)) return 'anniversary'
+  return null
+}
 function eventInk(color?: string | null, fallback = '#ffffff') {
   if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return fallback
   const n = parseInt(color.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255
   return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#102A43' : '#ffffff'
 }
-function CalendarMonth({ p, month, items, problem, demo }: { p: WidgetPalette; month: Date; items: EventInstance[]; problem?: string; demo?: boolean }) {
+function CalendarMonth({ p, month, items, categories, problem, demo }: { p: WidgetPalette; month: Date; items: EventInstance[]; categories: EventCategory[]; problem?: string; demo?: boolean }) {
   const days = calendarGrid(month), byDay = new Map<string, EventInstance[]>()
   for (const e of items) { const k = eventDay(e); if (k) byDay.set(k, [...(byDay.get(k) ?? []), e]) }
   for (const list of byDay.values()) list.sort((a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start))
@@ -184,14 +190,15 @@ function CalendarMonth({ p, month, items, problem, demo }: { p: WidgetPalette; m
     </FlexWidget>
     {problem ? <Note p={p} text={problem} /> : null}
     <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'stretch', marginBottom: 3 }}>{weekdays.map((w, i) => <FlexWidget key={i} style={{ width: 0, minWidth: 0, flex: 1, flexShrink: 1, alignItems: 'center' }}><TextWidget text={w} style={{ fontSize: 11, fontWeight: 'bold', color: p.dim }} /></FlexWidget>)}</FlexWidget>
-    {Array.from({ length: days.length / 7 }, (_, row) => <FlexWidget key={row} style={{ width: 'match_parent', height: 48, flexDirection: 'row', alignItems: 'stretch' }}>{days.slice(row * 7, row * 7 + 7).map((day) => {
-      const key = dateKey(day), currentMonth = day.getMonth() === month.getMonth(), today = key === dateKey(new Date()), dayEvents = byDay.get(key) ?? [], first = dayEvents[0]
+    {Array.from({ length: days.length / 7 }, (_, row) => <FlexWidget key={row} style={{ width: 'match_parent', height: 64, flexDirection: 'row', alignItems: 'stretch' }}>{days.slice(row * 7, row * 7 + 7).map((day) => {
+      const key = dateKey(day), currentMonth = day.getMonth() === month.getMonth(), today = key === dateKey(new Date()), dayEvents = byDay.get(key) ?? [], birthday = dayEvents.some((event) => celebration(event, categories) === 'birthday'), anniversary = dayEvents.some((event) => celebration(event, categories) === 'anniversary'), visibleEvents = dayEvents.filter((event) => !celebration(event, categories)), first = visibleEvents[0]
       return <FlexWidget key={key} style={{ width: 0, minWidth: 0, flex: 1, flexShrink: 1, flexDirection: 'column', alignItems: 'stretch', backgroundColor: today ? p.card : p.bg, borderRadius: 7, paddingTop: 3, paddingHorizontal: 2, margin: 1 }} clickAction="OPEN_URI" clickActionData={first && !demo ? link(`event&event=${encodeURIComponent(first.id)}&at=${encodeURIComponent(first.start)}`) : link('calendar')}>
         <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
           <TextWidget text={String(day.getDate())} style={{ fontSize: 13, fontWeight: today ? 'bold' : 'normal', color: currentMonth ? p.fg : p.dim }} />
-          {dayEvents.some(isBirthday) ? <TextWidget text="🎂" style={{ fontSize: 8, marginLeft: 2 }} /> : null}
+          {birthday ? <TextWidget text="🎂" style={{ fontSize: 10, marginLeft: 2 }} /> : null}
+          {anniversary ? <TextWidget text="🎉" style={{ fontSize: 10, marginLeft: 1 }} /> : null}
         </FlexWidget>
-        {dayEvents.slice(0, 2).map((event) => {
+        {visibleEvents.slice(0, 2).map((event) => {
           const color = event.color && /^#[0-9a-f]{6}$/i.test(event.color) ? event.color : p.accent
           const allDay = event.allDay
           return <FlexWidget key={event.id} style={{ width: 'match_parent', minWidth: 0, flexDirection: 'row', alignItems: 'center', marginTop: 2, paddingHorizontal: allDay ? 3 : 0, paddingVertical: 2, borderRadius: 3, backgroundColor: allDay ? color : p.bg }}>
@@ -199,7 +206,7 @@ function CalendarMonth({ p, month, items, problem, demo }: { p: WidgetPalette; m
             <TextWidget text={event.title} style={{ width: 'match_parent', minWidth: 0, flex: 1, flexShrink: 1, fontSize: 11, color: allDay ? eventInk(color) : color, fontWeight: 'bold' }} maxLines={1} truncate="END" />
           </FlexWidget>
         })}
-        {dayEvents.length > 2 ? <TextWidget text={`+${dayEvents.length - 2}`} style={{ fontSize: 9, color: p.dim }} /> : null}
+        {visibleEvents.length > 2 ? <TextWidget text={`+${visibleEvents.length - 2}` style={{ fontSize: 9, color: p.dim }} /> : null}
       </FlexWidget>
     })}</FlexWidget>)}
     {demo ? <TextWidget text="Demo" style={{ fontSize: 8, color: p.dim }} /> : null}
@@ -243,13 +250,13 @@ async function draw(name: Name, id: number, problem?: string): Promise<(p: Widge
     const to = new Date(dates[dates.length - 1].getFullYear(), dates[dates.length - 1].getMonth(), dates[dates.length - 1].getDate() + 1)
     if (demo) {
       const sample: EventInstance[] = [{ id: 'demo-sport', title: 'Sport', start: dateKey(new Date(selected.getFullYear(), selected.getMonth(), Math.min(12, new Date(selected.getFullYear(), selected.getMonth() + 1, 0).getDate()))), allDay: true, color: '#3E9B72' }]
-      return (p) => <CalendarMonth p={p} month={selected} items={sample} demo />
+      return (p) => <CalendarMonth p={p} month={selected} items={sample} categories={[]} demo />
     }
-    if (!c) return (p) => <CalendarMonth p={p} month={selected} items={[]} problem={SIGNED_OUT} />
-    const [rows, calendarRows] = await Promise.all([events(c, from, to), calendars(c)]).catch(() => [null, null] as const)
+    if (!c) return (p) => <CalendarMonth p={p} month={selected} items={[]} categories={[]} problem={SIGNED_OUT} />
+    const [rows, calendarRows, categoryRows] = await Promise.all([events(c, from, to), calendars(c), eventCategories(c)]).catch(() => [null, null, null] as const)
     const schoolIds = new Set((calendarRows ?? []).filter((cal) => cal.kind === 'ics').map((cal) => cal.id))
     const visible = rows?.filter((event) => !!event.calendarId && !schoolIds.has(event.calendarId)) ?? []
-    return (p) => <CalendarMonth p={p} month={selected} items={visible} problem={rows ? problem : OFFLINE} />
+    return (p) => <CalendarMonth p={p} month={selected} items={visible} categories={categoryRows ?? []} problem={rows ? problem : OFFLINE} />
   }
   switch (name) {
     case 'Chores': {
