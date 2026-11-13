@@ -167,7 +167,7 @@ function celebration(e: EventInstance, categories: EventCategory[]): 'birthday' 
   const category = categories.find((c) => c.id === e.categoryId)
   const label = `${category?.name ?? ''} ${category?.emoji ?? ''} ${e.title}`.toLocaleLowerCase()
   if (/geburtstag|birthday|🎂/.test(label)) return 'birthday'
-  if (/jubiläum|jubilaeum|jubilee|anniversary|🎉/.test(label)) return 'anniversary'
+  if (/jubiläum|jubilaeum|jubilar|jubilee|anniversary|🎉/.test(label)) return 'anniversary'
   return null
 }
 function eventInk(color?: string | null, fallback = '#ffffff') {
