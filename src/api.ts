@@ -20,6 +20,7 @@ export type EventInstance = {
 }
 export type BoardEvent = { id: string; title: string; start: string; end: string; allDay: boolean; calendarId?: string; color?: string | null; leaveAt?: string | null; date: string }
 export type CalendarEntry = { id: string; kind: 'local' | 'ics' | 'google' | 'microsoft' | 'caldav'; enabled: boolean }
+export type EventCategory = { id: string; name: string; emoji: string | null }
 export type Board = {
   today: string
   events: BoardEvent[]
@@ -52,6 +53,7 @@ export async function isKinwall(baseURL: string): Promise<boolean> {
 export const events = (c: Connection, from: Date, to: Date) =>
   api<EventInstance[]>(c.baseURL, c.key, 'GET', `api/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`)
 export const calendars = (c: Connection) => api<CalendarEntry[]>(c.baseURL, c.key, 'GET', 'api/calendars')
+export const eventCategories = (c: Connection) => api<EventCategory[]>(c.baseURL, c.key, 'GET', 'api/categories')
 /** This key's owner: a member id on a person's own device, else "shared" or null. */
 /** `householdId`: the same for every key to one family (servers from 2026-09-30 on). */
 export const me = (c: Connection) => api<{ scope: string; owner: string | null; householdId?: string }>(c.baseURL, c.key, 'GET', 'api/me')
