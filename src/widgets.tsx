@@ -206,7 +206,7 @@ function CalendarMonth({ p, month, items, categories, problem, demo }: { p: Widg
             <TextWidget text={event.title} style={{ width: 'match_parent', minWidth: 0, flex: 1, flexShrink: 1, fontSize: 11, color: allDay ? eventInk(color) : color, fontWeight: 'bold' }} maxLines={1} truncate="END" />
           </FlexWidget>
         })}
-        {visibleEvents.length > 2 ? <TextWidget text={`+${visibleEvents.length - 2}` style={{ fontSize: 9, color: p.dim }} /> : null}
+        {visibleEvents.length > 2 ? <TextWidget text={`+${visibleEvents.length - 2}`} style={{ fontSize: 9, color: p.dim }} /> : null}
       </FlexWidget>
     })}</FlexWidget>)}
     {demo ? <TextWidget text="Demo" style={{ fontSize: 8, color: p.dim }} /> : null}
