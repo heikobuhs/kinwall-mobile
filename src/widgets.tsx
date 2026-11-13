@@ -183,23 +183,23 @@ function CalendarMonth({ p, month, items, problem, demo }: { p: WidgetPalette; m
       <FlexWidget style={{ minWidth: 52, height: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7, backgroundColor: p.card, borderRadius: 22 }} clickAction="CALENDAR_MONTH" clickActionData={{ month: monthKey(new Date()) }}><TextWidget text={Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase().startsWith('de') ? 'Heute' : 'Today'} style={{ fontSize: 11, fontWeight: 'bold', color: p.accent }} /></FlexWidget>
     </FlexWidget>
     {problem ? <Note p={p} text={problem} /> : null}
-    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'stretch', marginBottom: 3 }}>{weekdays.map((w, i) => <FlexWidget key={i} style={{ width: 0, minWidth: 0, flex: 1, flexShrink: 1, alignItems: 'center' }}><TextWidget text={w} style={{ fontSize: 10, fontWeight: 'bold', color: p.dim }} /></FlexWidget>)}</FlexWidget>
-    {Array.from({ length: days.length / 7 }, (_, row) => <FlexWidget key={row} style={{ width: 'match_parent', flex: 1, flexDirection: 'row', alignItems: 'stretch' }}>{days.slice(row * 7, row * 7 + 7).map((day) => {
+    <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'stretch', marginBottom: 3 }}>{weekdays.map((w, i) => <FlexWidget key={i} style={{ width: 0, minWidth: 0, flex: 1, flexShrink: 1, alignItems: 'center' }}><TextWidget text={w} style={{ fontSize: 11, fontWeight: 'bold', color: p.dim }} /></FlexWidget>)}</FlexWidget>
+    {Array.from({ length: days.length / 7 }, (_, row) => <FlexWidget key={row} style={{ width: 'match_parent', height: 48, flexDirection: 'row', alignItems: 'stretch' }}>{days.slice(row * 7, row * 7 + 7).map((day) => {
       const key = dateKey(day), currentMonth = day.getMonth() === month.getMonth(), today = key === dateKey(new Date()), dayEvents = byDay.get(key) ?? [], first = dayEvents[0]
       return <FlexWidget key={key} style={{ width: 0, minWidth: 0, flex: 1, flexShrink: 1, flexDirection: 'column', alignItems: 'stretch', backgroundColor: today ? p.card : p.bg, borderRadius: 7, paddingTop: 3, paddingHorizontal: 2, margin: 1 }} clickAction="OPEN_URI" clickActionData={first && !demo ? link(`event&event=${encodeURIComponent(first.id)}&at=${encodeURIComponent(first.start)}`) : link('calendar')}>
         <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-          <TextWidget text={String(day.getDate())} style={{ fontSize: 12, fontWeight: today ? 'bold' : 'normal', color: currentMonth ? p.fg : p.dim }} />
+          <TextWidget text={String(day.getDate())} style={{ fontSize: 13, fontWeight: today ? 'bold' : 'normal', color: currentMonth ? p.fg : p.dim }} />
           {dayEvents.some(isBirthday) ? <TextWidget text="🎂" style={{ fontSize: 8, marginLeft: 2 }} /> : null}
         </FlexWidget>
         {dayEvents.slice(0, 2).map((event) => {
           const color = event.color && /^#[0-9a-f]{6}$/i.test(event.color) ? event.color : p.accent
           const allDay = event.allDay
-          return <FlexWidget key={event.id} style={{ width: 'match_parent', minWidth: 0, flexDirection: 'row', alignItems: 'center', marginTop: 2, paddingHorizontal: allDay ? 3 : 0, paddingVertical: 2, borderRadius: 3, backgroundColor: allDay ? color : 'transparent' }}>
-            {!allDay ? <FlexWidget style={{ width: 3, height: 12, backgroundColor: color, borderRadius: 2, marginRight: 3 }} /> : null}
-            <TextWidget text={event.title} style={{ width: 'match_parent', minWidth: 0, flex: 1, flexShrink: 1, fontSize: 9, color: allDay ? eventInk(color) : color, fontWeight: 'bold' }} maxLines={1} truncate="END" />
+          return <FlexWidget key={event.id} style={{ width: 'match_parent', minWidth: 0, flexDirection: 'row', alignItems: 'center', marginTop: 2, paddingHorizontal: allDay ? 3 : 0, paddingVertical: 2, borderRadius: 3, backgroundColor: allDay ? color : p.bg }}>
+            {!allDay ? <FlexWidget style={{ width: 3, height: 14, backgroundColor: color, borderRadius: 2, marginRight: 3 }} /> : null}
+            <TextWidget text={event.title} style={{ width: 'match_parent', minWidth: 0, flex: 1, flexShrink: 1, fontSize: 11, color: allDay ? eventInk(color) : color, fontWeight: 'bold' }} maxLines={1} truncate="END" />
           </FlexWidget>
         })}
-        {dayEvents.length > 2 ? <TextWidget text={`+${dayEvents.length - 2}`} style={{ fontSize: 8, color: p.dim }} /> : null}
+        {dayEvents.length > 2 ? <TextWidget text={`+${dayEvents.length - 2}`} style={{ fontSize: 9, color: p.dim }} /> : null}
       </FlexWidget>
     })}</FlexWidget>)}
     {demo ? <TextWidget text="Demo" style={{ fontSize: 8, color: p.dim }} /> : null}
